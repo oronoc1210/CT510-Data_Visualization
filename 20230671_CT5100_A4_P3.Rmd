@@ -1,0 +1,112 @@
+---
+title: "CT5100 Assignment 4 Part 3"
+author: "Conor O'Donoghue"
+date: "April 12, 2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Plot / Explanation
+
+```{r, echo=FALSE, message=FALSE}
+# Loading libraries
+library(ggplot2)
+library(dplyr)
+library(forcats)
+library(countrycode)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Reading in data
+df <- read.csv('./OECD_PISA.csv')
+
+# Subsetting to US scores only
+df_US <- df[which(df$LOCATION == "USA" & df$SUBJECT %in% c("BOY", "GIRL")),]
+
+# Adding country names
+df_US$country <- countrycode(df_US$LOCATION, origin='iso3c', destination='country.name')
+df_US[df_US$LOCATION=="OAVG", "country"] <- "OECD - Average"
+
+# Colors (obtained with imagecolorpicker.com)
+bg_color = "#DEEDF3"
+black_color = "#000000"
+red_color = "#FF0024"
+boy_color = "#326A88"
+girl_color = "#3C6F8D"
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Creating US plot
+ggplot(df_US, aes(x = TIME, y = Value)) +
+        # plot white lines from bottom of the plot to each point
+        geom_segment(aes(x=TIME, y=440, xend=TIME, yend=Value), color="white", size=0.5) +
+        # plot grey lines between the boys and the girls points for each country
+        geom_line(aes(group = TIME), colour = "grey", size=0.5) +
+        geom_point(aes(shape = SUBJECT, fill= SUBJECT, color=SUBJECT), size=2) +
+        # Rather than 'no fill', can also fill girl color with same color as the background.
+        scale_shape_manual(values=c(21, 23), labels=c("Boys", "Girls")) +
+        scale_color_manual(values=c(boy_color,girl_color), labels=c("Boys", "Girls")) +
+        scale_fill_manual(values= c(boy_color,bg_color), labels=c("Boys", "Girls")) +
+        # Start and end must be 20 units higher than breaks
+        scale_y_continuous(limits = c(430, 550), 
+                           expand = c(0, 0),
+                           breaks = seq(440, 540, by = 20),
+                           name = "seconds") +
+        scale_x_continuous(limits = c(1998, 2020), breaks=seq(2000,2018,by=2)) +
+        labs(title="Reading performance (PISA)",
+             subtitle="Boys/Girls, Mean score, USA",
+             caption="Source: PISA: Programme for International Student Assessment") +
+              # Move title, subtitle, and caption to match original plot
+        theme(plot.title = element_text(size=10, vjust=-5),
+              plot.subtitle = element_text(size=6.5, hjust=0.38, vjust=1),
+              plot.caption.position = "plot",
+              plot.caption = element_text(size=6.5, vjust=190.5),
+              panel.grid.major.x = element_blank(),
+              panel.grid.minor.x = element_blank(),
+              panel.grid.minor.y = element_blank(),
+              # Draw horozontal gridlines
+              panel.grid.major.y = element_line(color="white", size=0.5),
+              # Set background color
+              panel.background = element_rect(fill=bg_color),
+              # Remove axis lines and ticks
+              axis.line.y = element_blank(),
+              axis.line.x = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.ticks.x = element_blank(),
+              # Add x labels, rotate, color accordingly
+              axis.text.x = element_text(size=8, angle=45, hjust=1),
+              axis.title.x = element_blank(),
+              axis.text.y = element_text(size=8, vjust=-0.3),
+              axis.title.y = element_blank(),
+              # set legend position to bottom left, set entries to be horizontal
+              legend.position= c(0.05, -0.15),
+              legend.direction = "horizontal",
+              legend.text = element_text(size = 7),
+              legend.key.size = unit(0.7, "lines"),
+              legend.background = element_blank(),
+              legend.title = element_blank())
+```
+
+I chose to visualize the PISA data for the United States over time, since I live here and I figured that other students would be more likely
+choose Ireland or other European countries.
+
+I essentially made the same plot as in Part 2, but changed the x-axis from country to year. Hence the biggest changes involved the x-axis,
+which changed from a discrete to a continuous variable and needed limits and breaks. Once I added breaks ggplot began to plot vertical gridlines
+which were confusing with the existing vertical white lines, so I removed them by setting panel.grid.minor.x to element_blank(). The y-axis also needed
+its limits shrunk to zoom in on the US values.
+
+I considered adding a line connecting each of the boys' and girls' respective points together and removing the vertical lines,
+but I found that there was still value in directly visualizing the difference between the boys and girls PISA scores for each year with the grey lines,
+and I didn't want to change the aesthetics too much from the original plot. 
+
+\pagebreak
+# Code Appendix
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+

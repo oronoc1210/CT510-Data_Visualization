@@ -1,0 +1,150 @@
+---
+title: "CT5100 Assignment 4 Part 2"
+author: "Conor O'Donoghue"
+date: "April 12, 2021"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Explanation
+  To get the x-axis labels correct I created a new factor, country, which is just the LOCATION factor translated to country names using countrycode.
+I then wanted to order the country factor by the boys' pisa values as in the plot.
+this was trickier than anticipated -- I found that I could use dplyr's fct_reorder2() to
+reorder the country factor by both subject (boy/girl) and value, but found that whether I included or excluded a - sign it 
+ended up sorting by the girls' PISA scores. The fix was to turn subject into a numeric first, THEN trying to sort by subject descending
+and value ascending worked.
+
+  I wanted to use the same colors as the original plot, so I obtained the hex values for the boys' points, the outline of the girls' points,
+the background, the red, the black, and the grey that the rest of the text was colored in using imagecolorpicker.com. I couldn't find a programmatic way to
+change the text colors of the x labels, so I made a vector of grey values and adjusted the values at the indexes where the Irish and OECD values would be
+to red and black respectively.
+
+  I plotted the vertical lines for each country first and the points after, so that the vertical lines wouldn't draw through the circles or the diamonds.
+The white lines used geom_segment() to draw a line from the lower limit (340) to each point, and geom_line() to draw a line connecting the boys' and girls' values for each country.
+I highlighted the OECD Average values in black and the Irish values in red by avoiding plotting them with the first geom_point() call,
+and then using additional geom_point() calls to explicitly plot each set of points with the right colors.
+
+  I changed the breaks in scale_y_continuous to start at 340, end at 560, and increment by 20, and set the limits to be just outside that.
+I removed most aspects of the theme using element_blank(). Notably, I left in the horozontal gridlines by setting panel.grid.major.y equal to element_line()
+with a white color, set panel.background to an element_rect() with the same color as the background color of the original plot, 
+rotated the x-axis labels and set the colors with the angle= and color= arguments in element_text() for axis.text.x,
+and moved the y-axis labels up with axis.text.y = element_text(vjust=-0.3).
+
+  I had to set the legend's position manually and nudge the plot's subtitle and caption where I wanted them
+using hjust and vjust, and reduced the size of all the text until it was roughly proportional
+to the original plot.
+
+  The one aspect of the plot that I was unable to reproduce was the background (including the light blue color and the gridlines)
+extending left into the y-axis labels. It should have to do with the theme() function, but I couldn't figure out a way to make it work.
+The best I could do was use vjust() to move the y-axis labels up so that they would be just above each gridline if I could have extended it left.
+
+\pagebreak
+# Plot
+```{r, echo=FALSE, message=FALSE}
+# Loading libraries
+library(ggplot2)
+library(dplyr)
+library(forcats)
+library(countrycode)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Reading in data
+df <- read.csv('./OECD_PISA.csv')
+
+# Subsetting to 2018 mean scores only
+df_18 <- df[which(df$TIME == 2018 & df$SUBJECT %in% c("BOY", "GIRL")),]
+
+# Adding country names
+df_18$country <- countrycode(df_18$LOCATION, origin='iso3c', destination='country.name')
+df_18[df_18$LOCATION=="OAVG", "country"] <- "OECD - Average"
+
+# Order Location by BOY'S value
+df_18 <- df_18 %>% mutate(country = fct_reorder2(country, -as.numeric(SUBJECT), Value, .desc=FALSE))
+
+# Colors (obtained with imagecolorpicker.com)
+bg_color = "#DEEDF3"
+black_color = "#000000"
+red_color = "#FF0024"
+boy_color = "#326A88"
+girl_color = "#3C6F8D"
+
+# Set up text color
+# for the life of me I could not find a programmatic way to do the text color.
+# I was trying to use the location factor LEVELS to make a new array of colors with "grey" for all but "red" where IRL was and "black" where OAVG was,
+# But I couldn't figure it out. So I hard coded it.
+text_color = rep("#9b9797", 41)
+text_color[21] <- black_color
+text_color[40] <- red_color
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Recreating plot
+ggplot(df_18, aes(x = reorder(country,Value), y = Value)) +
+        coord_fixed(ratio=0.07) +
+        # plot white lines from bottom of the plot to each point
+        geom_segment(aes(x=country, y=340, xend=country, yend=Value), color="white", size=0.5) +
+        # plot grey lines between the boys and the girls points for each country
+        geom_line(aes(group = country), colour = "grey", size=0.5) +
+        # plot averages as black
+        geom_point(aes(shape=SUBJECT), fill=black_color, color=black_color, size=2, data=df_18[df_18$LOCATION == "OAVG",]) +
+        # plot ireland as red
+        geom_point(aes(shape=SUBJECT), fill=red_color, color=red_color, size=2, data=df_18[df_18$LOCATION == "IRL",]) +
+        # plot the remainder of the points
+        geom_point(aes(shape = SUBJECT, fill= SUBJECT, color=SUBJECT), size=2, data=df_18[!df_18$LOCATION %in% c("OAVG", "IRL"),]) +
+        # Rather than 'no fill', can also fill girl color with same color as the background.
+        scale_shape_manual(values=c(21, 23), labels=c("Boys", "Girls")) +
+        scale_color_manual(values=c(boy_color,girl_color), labels=c("Boys", "Girls")) +
+        scale_fill_manual(values= c(boy_color,bg_color), labels=c("Boys", "Girls")) +
+        # Start and end must be 20 units higher than breaks
+        scale_y_continuous(limits = c(320, 580), 
+                           expand = c(0, 0),
+                           minor_breaks=seq(340,560,by=20),
+                           breaks = seq(340, 560, by = 20),
+                           name = "seconds") +
+        labs(title="Reading performance (PISA)",
+             subtitle="Boys/Girls, Mean score, 2018",
+             caption="Source: PISA: Programme for International Student Assessment") +
+              # Move title, subtitle, and caption to match original plot
+        theme(plot.title = element_text(size=10, vjust=-5),
+              plot.subtitle = element_text(size=6.5, hjust=0.38, vjust=1),
+              plot.caption.position = "plot",
+              plot.caption = element_text(size=6.5, vjust=166.5),
+              panel.grid.major.x = element_blank(),
+              panel.grid.minor.y = element_blank(),
+              # Draw horozontal gridlines
+              panel.grid.major.y = element_line(color="white", size=0.5),
+              # Set background color
+              panel.background = element_rect(fill=bg_color),
+              # Remove axis lines and ticks
+              axis.line.y = element_blank(),
+              axis.line.x = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.ticks.x = element_blank(),
+              # Add x labels, rotate, color accordingly
+              axis.text.x = element_text(size=6, angle=45, hjust=1, color=text_color),
+              axis.title.x = element_blank(),
+              axis.text.y = element_text(size=6, vjust=-0.3),
+              axis.title.y = element_blank(),
+              # set legend position to bottom left, set entries to be horizontal
+              legend.position= c(0.05, -0.25),
+              legend.direction = "horizontal",
+              legend.text = element_text(size = 7),
+              legend.key.size = unit(0.7, "lines"),
+              legend.background = element_blank(),
+              legend.title = element_blank())
+```
+
+
+\pagebreak
+# Code Appendix
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
